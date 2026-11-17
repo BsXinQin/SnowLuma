@@ -104,9 +104,10 @@ RUN set -eux; \
       got="local"; \
     fi; \
     base="https://dldir1v6.qq.com/qqfile/qq/QQNT/Linux"; \
-    cand1="${base}/QQ_3.2.31_260710_${qq_arch}_01.deb"; \
-    cand2="${base}/QQ_3.2.28_260429_${qq_arch}_01.deb"; \
-    cand3="${base}/QQ_3.2.34_260924_${qq_arch}_01.deb"; \
+    mirror="https://github.com/zydou/QQ-Linux/releases/download"; \
+    cand1="${mirror}/3.2.28-260429/QQ-3.2.28-260429-${qq_arch}.deb"; \
+    cand2="${base}/QQ_3.2.31_260710_${qq_arch}_01.deb"; \
+    cand3="${base}/QQ_3.2.28_260429_${qq_arch}_01.deb"; \
     if [ -z "${got}" ]; then \
       for u in "${QQ_DEB_URL}" "${cand1}" "${cand2}" "${cand3}"; do \
         [ -n "${u}" ] || continue; \
