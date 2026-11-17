@@ -11,8 +11,9 @@ services:
       args:
         # ARM 服务器改成 linux-arm64
         TARGET: linux-x64
-        # 拉不到 Docker Hub 时换成可用镜像源
-        # BASE_IMAGE: docker.m.daocloud.io/motricseven7/snowluma:latest
+        # QQ 安装包版本失效时在这里覆盖（见 Dockerfile 注释）
+        # QQ_VERSION: 3.2.28-48517
+        # QQ_CHANNEL: f9cbaab2
     image: snowluma:local
     container_name: snowluma
     restart: unless-stopped

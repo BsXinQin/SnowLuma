@@ -7,7 +7,9 @@
 
 | 文件 | 说明 |
 |---|---|
-| `Dockerfile` | 两阶段：先用 Node 24 编译出 `dist/`，再覆盖到官方运行环境镜像 |
+| `Dockerfile` | 两阶段自包含镜像：先编译 `dist/`，再装 Linux QQ + 显示栈并放进产物 |
+| `docker/start.sh` | 容器入口：准备 Xvfb / X11VNC / noVNC，再交给 supervisord |
+| `docker/supervisord.conf` | 进程管理：QQ 与 SnowLuma 两个进程 |
 | `docker-compose.yml` | 单服务编排，含 ptrace / seccomp / shm 必需参数 |
 | `.env.example` | 环境变量模板，复制为 `.env` 后使用 |
 | `install.sh` | 一键部署脚本（环境检查 → 构建 → 启动 → 打印凭据） |
@@ -26,25 +28,21 @@ sudo bash install.sh
 
 脚本会依次：检查 Docker 与 compose（自动识别 v2 / 旧版）→ 按 CPU 架构选择打包目标 →
 生成 `.env`（随机 VNC 密码 + sudo 调用者的 UID/GID）→ 建数据目录 →
-构建镜像（底座拉取失败时自动换 daocloud 镜像源重试）→ 启动 → 打印 WebUI 临时密码与后续步骤。
+构建镜像 → 启动 → 打印 WebUI 临时密码与后续步骤。
 
 重复执行是安全的：已有的 `.env` 和数据目录不会被覆盖。
 
 ```bash
 sudo TARGET=linux-arm64 bash install.sh                                     # ARM 服务器
-sudo BASE_IMAGE=docker.m.daocloud.io/motricseven7/snowluma:latest bash install.sh
+sudo QQ_VERSION=3.2.28-48517 QQ_CHANNEL=f9cbaab2 bash install.sh            # QQ 安装包换版本
 ```
 
 内存不足 2G 且无 swap 时脚本只提示、不自动改系统；按提示手动加 swap 后再跑。
 
-### 宝塔应用商店（省事但要补一项）
+### 宝塔应用商店模板（已不可用）
 
-宝塔 → Docker → 应用商店 → 外部应用 → 导入应用，填
-`https://github.com/makotowu/SnowLuma.Docker.Baota.git` 可一键安装社区模板。
-
-但该模板**没有传 `SNOWLUMA_WEBUI_HOST`**，而 SnowLuma 的 `webuiHost` 默认是 `127.0.0.1`，
-在容器内等于"只有容器自己能访问"，装完 5099 会打不开。需要在应用的编排文件里
-`environment` 下补一行 `- SNOWLUMA_WEBUI_HOST=0.0.0.0`，再重新部署。
+社区模板 `makotowu/SnowLuma.Docker.Baota` 直接引用官方镜像 `motricseven7/snowluma`，
+而该镜像已从 Docker Hub 下架，所以这条路现在装不起来，请使用上面的 `install.sh` 或手动 compose。
 
 ## 构建
 
@@ -59,11 +57,14 @@ docker logs -f snowluma
 ```bash
 docker build -t snowluma:local .
 docker build -t snowluma:local --build-arg TARGET=linux-arm64 .   # ARM 服务器
-docker build -t snowluma:local \
-  --build-arg BASE_IMAGE=docker.m.daocloud.io/motricseven7/snowluma:latest .
+docker build -t snowluma:local --build-arg QQ_VERSION=3.2.28-48517 --build-arg QQ_CHANNEL=f9cbaab2 .
 ```
 
-构建过程与上游 release 流水线一致：`pnpm install --frozen-lockfile` →
+镜像完全自包含，不依赖任何上游预构建镜像：运行环境（Linux QQ + Xvfb + x11vnc +
+noVNC/websockify + supervisord）由 `Dockerfile` 内的 apt 与 QQ 官方 deb 安装，
+启动脚本为 `docker/start.sh`，进程管理为 `docker/supervisord.conf`。
+
+编译 SnowLuma 本身的过程与上游 release 流水线一致：`pnpm install --frozen-lockfile` →
 `SNOWLUMA_TARGET=<target> pnpm run build:all` → `pnpm run check:release-layout`。
 产物不完整会在构建期直接失败，不会产出半成品镜像。
 

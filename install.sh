@@ -4,17 +4,15 @@
 # 用法：
 #   sudo bash install.sh
 #   sudo TARGET=linux-arm64 bash install.sh          # ARM 服务器
-#   sudo BASE_IMAGE=docker.m.daocloud.io/motricseven7/snowluma:latest bash install.sh
+#   sudo QQ_VERSION=3.2.28-48517 QQ_CHANNEL=f9cbaab2 bash install.sh   # QQ 安装包换版本
 #
 # 做的事情：检查环境 → 生成 .env（随机 VNC 密码 + 当前用户 UID/GID）
-#           → 建数据目录 → 构建镜像（底座拉取失败自动换镜像源）→ 启动 → 打印后续步骤
+#           → 建数据目录 → 构建镜像 → 启动 → 打印后续步骤
 #
 # 重复执行是安全的：已有的 .env 不会被覆盖，已有数据目录不会动。
 
 set -euo pipefail
 
-BASE_IMAGE="${BASE_IMAGE:-motricseven7/snowluma:latest}"
-MIRROR_IMAGE="${MIRROR_IMAGE:-docker.m.daocloud.io/motricseven7/snowluma:latest}"
 APP_DIR="${APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 
 WEBUI_PORT="${WEBUI_PORT:-5099}"
@@ -100,14 +98,12 @@ ok "数据目录就绪：$APP_DIR/{data,qq-config,qq-data}（属主 ${host_uid}:
 
 # ---------- 4. 构建 ----------
 info "开始构建镜像，首次需要 5-15 分钟（pnpm install 占大头）…"
-if $DC build --build-arg TARGET="$TARGET" --build-arg BASE_IMAGE="$BASE_IMAGE" ; then
-    ok "镜像构建完成（底座：$BASE_IMAGE）"
-else
-    warn "构建失败，改用镜像源重试：$MIRROR_IMAGE"
-    $DC build --build-arg TARGET="$TARGET" --build-arg BASE_IMAGE="$MIRROR_IMAGE" \
-        || die "构建仍然失败，请把上面的错误贴出来"
-    ok "镜像构建完成（底座：$MIRROR_IMAGE）"
-fi
+build_args=(--build-arg "TARGET=$TARGET")
+[ -n "${QQ_VERSION:-}" ] && build_args+=(--build-arg "QQ_VERSION=$QQ_VERSION")
+[ -n "${QQ_CHANNEL:-}" ] && build_args+=(--build-arg "QQ_CHANNEL=$QQ_CHANNEL")
+
+$DC build "${build_args[@]}" || die "构建失败，请把上面的错误贴出来（若卡在下载 QQ，用 QQ_VERSION/QQ_CHANNEL 覆盖版本）"
+ok "镜像构建完成"
 
 # ---------- 5. 启动 ----------
 $DC up -d
