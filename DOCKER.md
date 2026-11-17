@@ -10,10 +10,41 @@
 | `Dockerfile` | 两阶段：先用 Node 24 编译出 `dist/`，再覆盖到官方运行环境镜像 |
 | `docker-compose.yml` | 单服务编排，含 ptrace / seccomp / shm 必需参数 |
 | `.env.example` | 环境变量模板，复制为 `.env` 后使用 |
+| `install.sh` | 一键部署脚本（环境检查 → 构建 → 启动 → 打印凭据） |
 | `.dockerignore` | 排除 `node_modules`、`dist`、本地数据目录 |
 | `DOCKER.md` | 本文档 |
 | `.gitignore` | 追加容器运行时产生的目录与 `.env` |
 | `.github/workflows/` | **已删除**。上游工作流依赖 SnowLuma 组织自己的 secrets / vars / 私有仓库，在别处必然失败 |
+
+## 一键安装
+
+在仓库根目录执行：
+
+```bash
+sudo bash install.sh
+```
+
+脚本会依次：检查 Docker 与 compose（自动识别 v2 / 旧版）→ 按 CPU 架构选择打包目标 →
+生成 `.env`（随机 VNC 密码 + sudo 调用者的 UID/GID）→ 建数据目录 →
+构建镜像（底座拉取失败时自动换 daocloud 镜像源重试）→ 启动 → 打印 WebUI 临时密码与后续步骤。
+
+重复执行是安全的：已有的 `.env` 和数据目录不会被覆盖。
+
+```bash
+sudo TARGET=linux-arm64 bash install.sh                                     # ARM 服务器
+sudo BASE_IMAGE=docker.m.daocloud.io/motricseven7/snowluma:latest bash install.sh
+```
+
+内存不足 2G 且无 swap 时脚本只提示、不自动改系统；按提示手动加 swap 后再跑。
+
+### 宝塔应用商店（省事但要补一项）
+
+宝塔 → Docker → 应用商店 → 外部应用 → 导入应用，填
+`https://github.com/makotowu/SnowLuma.Docker.Baota.git` 可一键安装社区模板。
+
+但该模板**没有传 `SNOWLUMA_WEBUI_HOST`**，而 SnowLuma 的 `webuiHost` 默认是 `127.0.0.1`，
+在容器内等于"只有容器自己能访问"，装完 5099 会打不开。需要在应用的编排文件里
+`environment` 下补一行 `- SNOWLUMA_WEBUI_HOST=0.0.0.0`，再重新部署。
 
 ## 构建
 
