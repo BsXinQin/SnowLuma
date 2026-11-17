@@ -66,6 +66,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       git \
       libasound2 \
       libatspi2.0-0 \
+      libcap2-bin \
       libgbm1 \
       libgtk-3-0 \
       libnotify4 \
@@ -153,7 +154,9 @@ RUN chmod +x /root/start.sh \
  && test -f "${SNOWLUMA_HOME}/native/snowluma-linux-${native_arch}.node" \
  && test -f "${SNOWLUMA_HOME}/native/snowluma-linux-${native_arch}.so" \
  && test -f "${SNOWLUMA_HOME}/native/websocket-linux-${native_arch}.node" \
- && chown -R snowluma:snowluma /app /opt/QQ
+ && chown -R snowluma:snowluma /app /opt/QQ \
+ && setcap cap_sys_ptrace+ep /usr/local/bin/node \
+ && getcap /usr/local/bin/node
 
 WORKDIR /app/snowluma-data
 
