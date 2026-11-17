@@ -4,7 +4,7 @@
 # 用法：
 #   sudo bash install.sh
 #   sudo TARGET=linux-arm64 bash install.sh          # ARM 服务器
-#   sudo QQ_VERSION=3.2.28-48517 QQ_CHANNEL=f9cbaab2 bash install.sh   # QQ 安装包换版本
+#   sudo QQ_DEB_URL=<完整 deb 链接> bash install.sh      # QQ 安装包地址失效时指定
 #
 # 做的事情：检查环境 → 生成 .env（随机 VNC 密码 + 当前用户 UID/GID）
 #           → 建数据目录 → 构建镜像 → 启动 → 打印后续步骤
@@ -99,10 +99,9 @@ ok "数据目录就绪：$APP_DIR/{data,qq-config,qq-data}（属主 ${host_uid}:
 # ---------- 4. 构建 ----------
 info "开始构建镜像，首次需要 5-15 分钟（pnpm install 占大头）…"
 build_args=(--build-arg "TARGET=$TARGET")
-[ -n "${QQ_VERSION:-}" ] && build_args+=(--build-arg "QQ_VERSION=$QQ_VERSION")
-[ -n "${QQ_CHANNEL:-}" ] && build_args+=(--build-arg "QQ_CHANNEL=$QQ_CHANNEL")
+[ -n "${QQ_DEB_URL:-}" ] && build_args+=(--build-arg "QQ_DEB_URL=$QQ_DEB_URL")
 
-$DC build "${build_args[@]}" || die "构建失败，请把上面的错误贴出来（若卡在下载 QQ，用 QQ_VERSION/QQ_CHANNEL 覆盖版本）"
+$DC build "${build_args[@]}" || die "构建失败，请把上面的错误贴出来（若卡在下载 QQ，用 QQ_DEB_URL=<完整 deb 链接> 指定）"
 ok "镜像构建完成"
 
 # ---------- 5. 启动 ----------

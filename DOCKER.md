@@ -34,7 +34,7 @@ sudo bash install.sh
 
 ```bash
 sudo TARGET=linux-arm64 bash install.sh                                     # ARM 服务器
-sudo QQ_VERSION=3.2.28-48517 QQ_CHANNEL=f9cbaab2 bash install.sh            # QQ 安装包换版本
+sudo QQ_DEB_URL=<完整 deb 链接> bash install.sh              # QQ 安装包地址失效时指定
 ```
 
 内存不足 2G 且无 swap 时脚本只提示、不自动改系统；按提示手动加 swap 后再跑。
@@ -57,7 +57,7 @@ docker logs -f snowluma
 ```bash
 docker build -t snowluma:local .
 docker build -t snowluma:local --build-arg TARGET=linux-arm64 .   # ARM 服务器
-docker build -t snowluma:local --build-arg QQ_VERSION=3.2.28-48517 --build-arg QQ_CHANNEL=f9cbaab2 .
+docker build -t snowluma:local --build-arg QQ_DEB_URL=<完整 deb 链接> .
 ```
 
 镜像完全自包含，不依赖任何上游预构建镜像：运行环境（Linux QQ + Xvfb + x11vnc +

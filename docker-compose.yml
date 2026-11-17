@@ -11,9 +11,8 @@ services:
       args:
         # ARM 服务器改成 linux-arm64
         TARGET: linux-x64
-        # QQ 安装包版本失效时在这里覆盖（见 Dockerfile 注释）
-        # QQ_VERSION: 3.2.28-48517
-        # QQ_CHANNEL: f9cbaab2
+        # QQ 安装包地址失效时在这里指定完整 deb 链接（见 Dockerfile 注释）
+        # QQ_DEB_URL: https://dldir1v6.qq.com/qqfile/qq/QQNT/Linux/QQ_3.2.27_260401_amd64_01.deb
     image: snowluma:local
     container_name: snowluma
     restart: unless-stopped

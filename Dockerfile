@@ -8,15 +8,13 @@
 # 构建：
 #   docker build -t snowluma:local .
 #   docker build -t snowluma:local --build-arg TARGET=linux-arm64 .
-#   docker build -t snowluma:local --build-arg QQ_VERSION=<新版号> --build-arg QQ_CHANNEL=<新渠道号> .
+#   docker build -t snowluma:local --build-arg QQ_DEB_URL=<完整 deb 链接> .
 #
-# 若 QQ 安装包地址失效（腾讯会改版本号），用上面的 QQ_VERSION / QQ_CHANNEL 覆盖，
-# 版本号可从 https://im.qq.com/pcqq 的 Linux 版下载链接中获取。
+# QQ 安装包：腾讯会不定期改文件名，下方按候选地址依次尝试；全都失效时用
+# QQ_DEB_URL 直接指定。链接可从 https://im.qq.com/linuxqq/index.html 复制。
 
 ARG NODE_VERSION=24
-ARG QQ_VERSION=3.2.28-48517
-ARG QQ_CHANNEL=f9cbaab2
-ARG QQ_BASE_URL=https://dldir1v6.qq.com/qqfile/qq/QQNT
+ARG QQ_DEB_URL=
 
 # ---------- 阶段 1：编译 SnowLuma ----------
 FROM node:${NODE_VERSION}-bookworm-slim AS builder
@@ -38,9 +36,7 @@ RUN pnpm install --frozen-lockfile \
 FROM node:${NODE_VERSION}-bookworm-slim
 
 ARG TARGETARCH
-ARG QQ_VERSION
-ARG QQ_CHANNEL
-ARG QQ_BASE_URL
+ARG QQ_DEB_URL
 
 ENV DEBIAN_FRONTEND=noninteractive \
     VNC_PASSWD=vncpasswd \
@@ -90,7 +86,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# 安装 Linux QQ（deb 由官方 CDN 提供，架构随构建平台）
+# 安装 Linux QQ：按候选地址依次尝试，全部失败则报错提示手动指定
 RUN set -eux; \
     qq_arch="$(dpkg --print-architecture)"; \
     case "${qq_arch}" in \
@@ -98,9 +94,25 @@ RUN set -eux; \
       *) echo "不支持的架构: ${qq_arch}" >&2; exit 1 ;; \
     esac; \
     apt-get update; \
-    aria2c --check-certificate=false -x16 -s16 \
-      -o /tmp/linuxqq.deb \
-      "${QQ_BASE_URL}/${QQ_CHANNEL}/linuxqq_${QQ_VERSION}_${qq_arch}.deb"; \
+    base="https://dldir1v6.qq.com/qqfile/qq/QQNT/Linux"; \
+    cand1="${base}/QQ_3.2.27_260401_${qq_arch}_01.deb"; \
+    cand2="${base}/linuxqq_3.2.27-47256_${qq_arch}.deb"; \
+    cand3="${base}/linuxqq_3.2.28-48517_${qq_arch}.deb"; \
+    got=""; \
+    for u in "${QQ_DEB_URL}" "${cand1}" "${cand2}" "${cand3}"; do \
+      [ -n "${u}" ] || continue; \
+      echo ">>> 尝试下载 ${u}"; \
+      if aria2c --check-certificate=false -x16 -s16 --allow-overwrite=true \
+           -o /tmp/linuxqq.deb "${u}"; then got="${u}"; break; fi; \
+      rm -f /tmp/linuxqq.deb; \
+    done; \
+    [ -n "${got}" ] || { \
+      echo "QQ 安装包下载失败：候选地址均不可用。" >&2; \
+      echo "请到 https://im.qq.com/linuxqq/index.html 复制当前 deb 链接，然后：" >&2; \
+      echo "  docker compose build --build-arg QQ_DEB_URL=<完整链接>" >&2; \
+      exit 1; \
+    }; \
+    echo ">>> 使用 ${got}"; \
     (dpkg -i /tmp/linuxqq.deb || apt-get -f install -y --no-install-recommends); \
     rm -f /tmp/linuxqq.deb; \
     chmod 777 /opt/QQ; \
