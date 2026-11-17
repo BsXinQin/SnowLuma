@@ -1,0 +1,17 @@
+.git
+.github
+node_modules
+**/node_modules
+dist
+**/dist
+coverage
+data
+qq-config
+qq-data
+.env
+*.log
+*.tar.gz
+*.zip
+.vscode
+.idea
+.DS_Store

@@ -1,0 +1,62 @@
+name: snowluma
+
+# SnowLuma = QQ 客户端 → OneBot v11 的桥接运行时。
+# 容器内同时运行 Linux QQ + Xvfb + noVNC + SnowLuma，靠 ptrace 注入 QQ 进程，
+# 因此 SYS_PTRACE / seccomp=unconfined / shm_size 三项都不能省。
+
+services:
+  snowluma:
+    build:
+      context: .
+      args:
+        # ARM 服务器改成 linux-arm64
+        TARGET: linux-x64
+        # 拉不到 Docker Hub 时换成可用镜像源
+        # BASE_IMAGE: docker.m.daocloud.io/motricseven7/snowluma:latest
+    image: snowluma:local
+    container_name: snowluma
+    restart: unless-stopped
+
+    # QQ 基于 Chromium，/dev/shm 给小了会随机崩
+    shm_size: 1gb
+
+    # hook 注入依赖 ptrace；缺任意一项，QQ 在跑但收不到消息
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp=unconfined
+
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 1048576
+
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      VNC_PASSWD: ${VNC_PASSWD:?请复制 .env.example 为 .env 并设置 VNC_PASSWD}
+      SNOWLUMA_UID: ${SNOWLUMA_UID:-1000}
+      SNOWLUMA_GID: ${SNOWLUMA_GID:-1000}
+      # 不设这两项，WebUI 只监听容器内 127.0.0.1，宿主机打不开
+      SNOWLUMA_WEBUI_HOST: 0.0.0.0
+      SNOWLUMA_WEBUI_PORT: "5099"
+      # 扫码后自动切工作模式，不用每次进 WebUI 手动 Load
+      SNOWLUMA_HOOK_AUTOLOAD: "1"
+      SNOWLUMA_LOG_LEVEL: ${SNOWLUMA_LOG_LEVEL:-info}
+      SNOWLUMA_SCREEN: ${SNOWLUMA_SCREEN:-1600x900x16}
+
+    ports:
+      # 只绑本机：外网通过反向代理或 SSH 隧道进来
+      - "127.0.0.1:5099:5099"   # SnowLuma WebUI
+      - "127.0.0.1:6081:6081"   # noVNC，扫码登录 QQ 用
+      - "127.0.0.1:3001:3001"   # OneBot v11 正向 WebSocket
+
+    volumes:
+      - ./data:/app/snowluma-data   # 配置，含 config/runtime.json、config/onebot.json
+      - ./qq-config:/app/.config    # QQ 登录态
+      - ./qq-data:/app/.local/share
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
