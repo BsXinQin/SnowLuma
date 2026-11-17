@@ -86,7 +86,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# 安装 Linux QQ：按候选地址依次尝试，全部失败则报错提示手动指定
+# 安装 Linux QQ：优先使用 vendor/ 里的本地 deb，没有才按候选地址下载
+COPY vendor/ /tmp/vendor/
+
 RUN set -eux; \
     qq_arch="$(dpkg --print-architecture)"; \
     case "${qq_arch}" in \
@@ -94,25 +96,35 @@ RUN set -eux; \
       *) echo "不支持的架构: ${qq_arch}" >&2; exit 1 ;; \
     esac; \
     apt-get update; \
+    got=""; \
+    local_deb="$(ls /tmp/vendor/*.deb 2>/dev/null | head -n 1 || true)"; \
+    if [ -n "${local_deb}" ]; then \
+      echo ">>> 使用本地安装包 ${local_deb}"; \
+      cp "${local_deb}" /tmp/linuxqq.deb; \
+      got="local"; \
+    fi; \
     base="https://dldir1v6.qq.com/qqfile/qq/QQNT/Linux"; \
     cand1="${base}/QQ_3.2.27_260401_${qq_arch}_01.deb"; \
     cand2="${base}/linuxqq_3.2.27-47256_${qq_arch}.deb"; \
     cand3="${base}/linuxqq_3.2.28-48517_${qq_arch}.deb"; \
-    got=""; \
-    for u in "${QQ_DEB_URL}" "${cand1}" "${cand2}" "${cand3}"; do \
-      [ -n "${u}" ] || continue; \
-      echo ">>> 尝试下载 ${u}"; \
-      if aria2c --check-certificate=false -x16 -s16 --allow-overwrite=true \
-           -o /tmp/linuxqq.deb "${u}"; then got="${u}"; break; fi; \
-      rm -f /tmp/linuxqq.deb; \
-    done; \
+    if [ -z "${got}" ]; then \
+      for u in "${QQ_DEB_URL}" "${cand1}" "${cand2}" "${cand3}"; do \
+        [ -n "${u}" ] || continue; \
+        echo ">>> 尝试下载 ${u}"; \
+        if aria2c --check-certificate=false -x16 -s16 --allow-overwrite=true \
+             -o /tmp/linuxqq.deb "${u}"; then got="${u}"; break; fi; \
+        rm -f /tmp/linuxqq.deb; \
+      done; \
+    fi; \
     [ -n "${got}" ] || { \
       echo "QQ 安装包下载失败：候选地址均不可用。" >&2; \
-      echo "请到 https://im.qq.com/linuxqq/index.html 复制当前 deb 链接，然后：" >&2; \
-      echo "  docker compose build --build-arg QQ_DEB_URL=<完整链接>" >&2; \
+      echo "两个办法（任选其一）：" >&2; \
+      echo "  1) 把 linuxqq 的 .deb 放到 vendor/ 目录后重新构建（推荐）" >&2; \
+      echo "  2) docker compose build --build-arg QQ_DEB_URL=<完整链接>" >&2; \
       exit 1; \
     }; \
-    echo ">>> 使用 ${got}"; \
+    echo ">>> 安装来源：${got}"; \
+    rm -rf /tmp/vendor; \
     (dpkg -i /tmp/linuxqq.deb || apt-get -f install -y --no-install-recommends); \
     rm -f /tmp/linuxqq.deb; \
     chmod 777 /opt/QQ; \

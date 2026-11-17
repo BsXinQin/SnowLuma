@@ -64,6 +64,19 @@ docker build -t snowluma:local --build-arg QQ_DEB_URL=<完整 deb 链接> .
 noVNC/websockify + supervisord）由 `Dockerfile` 内的 apt 与 QQ 官方 deb 安装，
 启动脚本为 `docker/start.sh`，进程管理为 `docker/supervisord.conf`。
 
+### QQ 安装包来源
+
+按优先级：`vendor/` 目录里的本地 deb → `QQ_DEB_URL` 构建参数 → 内置候选地址。
+
+```bash
+mkdir -p vendor
+cp /path/to/linuxqq_xxx_amd64.deb vendor/
+docker compose build        # 日志里会打印「使用本地安装包」
+```
+
+放之前确认架构匹配：`dpkg -I vendor/*.deb | grep Architecture`（amd64 或 arm64）。
+腾讯改动 CDN 文件名时（表现为 `aria2c` 退出码 3 / 404），放本地 deb 是最稳的办法。
+
 编译 SnowLuma 本身的过程与上游 release 流水线一致：`pnpm install --frozen-lockfile` →
 `SNOWLUMA_TARGET=<target> pnpm run build:all` → `pnpm run check:release-layout`。
 产物不完整会在构建期直接失败，不会产出半成品镜像。
